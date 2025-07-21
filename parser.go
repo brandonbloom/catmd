@@ -26,11 +26,17 @@ type HeaderInfo struct {
 	ID    string
 }
 
+type FootnoteInfo struct {
+	ID      string
+	Content string
+}
+
 type ParsedFile struct {
-	Headers []HeaderInfo
-	Links   []LinkInfo
-	AST     ast.Node
-	Source  []byte
+	Headers   []HeaderInfo
+	Links     []LinkInfo
+	Footnotes []FootnoteInfo
+	AST       ast.Node
+	Source    []byte
 }
 
 func NewMarkdownParser() goldmark.Markdown {
@@ -50,11 +56,32 @@ func ParseMarkdownFile(content []byte, scopeDir string) (*ParsedFile, error) {
 
 	doc := md.Parser().Parse(text.NewReader(content))
 
+	// First extract footnotes to get the index->ID mapping
+	footnotes := extractFootnotes(doc, content)
+
+	// Create index to ID mapping
+	indexToID := make(map[int]string)
+	for _, footnote := range footnotes {
+		// Find the footnote node to get its index
+		ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+			if !entering {
+				return ast.WalkContinue, nil
+			}
+			if footnoteNode, ok := n.(*extast.Footnote); ok {
+				if string(footnoteNode.Ref) == footnote.ID {
+					indexToID[footnoteNode.Index] = footnote.ID
+				}
+			}
+			return ast.WalkContinue, nil
+		})
+	}
+
 	parsed := &ParsedFile{
-		Headers: extractHeaders(doc, content),
-		Links:   extractLinks(doc, content, scopeDir),
-		AST:     doc,
-		Source:  content,
+		Headers:   extractHeaders(doc, content),
+		Links:     extractLinks(doc, content, scopeDir, indexToID),
+		Footnotes: footnotes,
+		AST:       doc,
+		Source:    content,
 	}
 
 	return parsed, nil
@@ -92,7 +119,7 @@ func extractHeaders(doc ast.Node, source []byte) []HeaderInfo {
 	return headers
 }
 
-func extractLinks(doc ast.Node, source []byte, scopeDir string) []LinkInfo {
+func extractLinks(doc ast.Node, source []byte, scopeDir string, indexToID map[int]string) []LinkInfo {
 	var links []LinkInfo
 
 	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -116,8 +143,14 @@ func extractLinks(doc ast.Node, source []byte, scopeDir string) []LinkInfo {
 		case *extast.FootnoteLink:
 			text := extractTextFromNode(node, source)
 
+			// Get the actual footnote reference ID from mapping
+			footnoteID := indexToID[node.Index]
+			if footnoteID == "" {
+				footnoteID = fmt.Sprintf("%d", node.Index) // fallback to index
+			}
+
 			links = append(links, LinkInfo{
-				URL:        fmt.Sprintf("[%d]", node.Index),
+				URL:        footnoteID,
 				Text:       text,
 				IsInternal: false,
 				IsFootnote: true,
@@ -182,4 +215,71 @@ func GenerateSectionLink(filename string) string {
 	base := filepath.Base(filename)
 	// Keep the full filename including extension
 	return "#" + base
+}
+
+func extractFootnotes(doc ast.Node, source []byte) []FootnoteInfo {
+	var footnotes []FootnoteInfo
+
+	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		if footnoteNode, ok := n.(*extast.Footnote); ok {
+			id := string(footnoteNode.Ref)
+			content := extractFootnoteContent(footnoteNode, source)
+
+			footnotes = append(footnotes, FootnoteInfo{
+				ID:      id,
+				Content: content,
+			})
+		}
+
+		return ast.WalkContinue, nil
+	})
+
+	return footnotes
+}
+
+func extractFootnoteContent(footnoteNode *extast.Footnote, source []byte) string {
+	// Extract the raw markdown content of the footnote by getting the text
+	// from the source between the footnote's start and end positions
+
+	// Find the first child (paragraph) of the footnote
+	if footnoteNode.ChildCount() == 0 {
+		return ""
+	}
+
+	firstChild := footnoteNode.FirstChild()
+	if firstChild == nil {
+		return ""
+	}
+
+	// Get the segment that contains the footnote content
+	segment := firstChild.Lines()
+	if segment.Len() == 0 {
+		return ""
+	}
+
+	var buf strings.Builder
+	for i := 0; i < segment.Len(); i++ {
+		line := segment.At(i)
+		lineText := string(source[line.Start:line.Stop])
+
+		// For the first line, we need to remove the footnote definition prefix [^id]:
+		if i == 0 {
+			// Find the ]: part and take everything after it
+			colonIndex := strings.Index(lineText, "]:")
+			if colonIndex >= 0 {
+				lineText = lineText[colonIndex+2:]
+			}
+		}
+
+		buf.WriteString(strings.TrimLeft(lineText, " \t"))
+		if i < segment.Len()-1 {
+			buf.WriteString(" ")
+		}
+	}
+
+	return strings.TrimSpace(buf.String())
 }

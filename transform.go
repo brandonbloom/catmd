@@ -38,8 +38,8 @@ func (fp *FileProcessor) ProcessFile(filename string, content []byte) ([]byte, e
 
 	header := fp.generateFileHeader(filename, parsed.Headers)
 
-	// Transform the content by replacing internal links
-	transformedContent := fp.transformContent(string(content), filename, parsed.Links)
+	// Transform the content by replacing internal links and inlining footnotes
+	transformedContent := fp.transformContent(string(content), filename, parsed.Links, parsed.Footnotes)
 
 	var result strings.Builder
 	if header != "" {
@@ -59,18 +59,28 @@ func (fp *FileProcessor) generateFileHeader(filename string, headers []HeaderInf
 		}
 	}
 
-	if len(topLevelHeaders) == 1 {
-		firstNode := true
-		for _, h := range headers {
-			if firstNode && h.Level == 1 {
-				return ""
+	// If there are 0 or more than 1 top-level headers, create synthetic header
+	if len(topLevelHeaders) != 1 {
+		base := filepath.Base(filename)
+		return "# " + base
+	}
+
+	// There's exactly 1 top-level header - check if it's at the start
+	firstHeaderIsTopLevel := false
+	for _, h := range headers {
+		if h.Level > 0 {
+			if h.Level == 1 {
+				firstHeaderIsTopLevel = true
 			}
-			if h.Level > 0 {
-				firstNode = false
-			}
+			break
 		}
 	}
 
+	if firstHeaderIsTopLevel {
+		return "" // Use the existing header
+	}
+
+	// Top-level header exists but not at start, create synthetic header
 	base := filepath.Base(filename)
 	return "# " + base
 }
@@ -121,8 +131,41 @@ func (fp *FileProcessor) resolveLink(currentFile, linkURL string) (string, error
 	return cleanPath, nil
 }
 
-func (fp *FileProcessor) transformContent(content string, currentFile string, links []LinkInfo) string {
+func (fp *FileProcessor) transformContent(content string, currentFile string, links []LinkInfo, footnotes []FootnoteInfo) string {
 	result := content
+
+	// First, remove footnote definitions before inlining
+	lines := strings.Split(result, "\n")
+	var filteredLines []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		isFootnoteDef := strings.HasPrefix(trimmed, "[^") &&
+			strings.Contains(trimmed, "]:") &&
+			strings.Index(trimmed, "]:") > 2 // Ensure there's content after [^
+		if !isFootnoteDef {
+			filteredLines = append(filteredLines, line)
+		}
+	}
+	result = strings.Join(filteredLines, "\n")
+
+	// Then, inline footnotes
+	footnoteMap := make(map[string]string)
+	for _, footnote := range footnotes {
+		footnoteMap[footnote.ID] = footnote.Content
+	}
+
+	// Replace footnote references with inline content
+	for _, link := range links {
+		if link.IsFootnote {
+			footnoteID := link.URL // URL now contains the footnote ID directly
+			if content, exists := footnoteMap[footnoteID]; exists {
+				// Replace [^id] with (content)
+				footnoteRef := fmt.Sprintf("[^%s]", footnoteID)
+				inlineContent := fmt.Sprintf(" (%s)", content)
+				result = strings.ReplaceAll(result, footnoteRef, inlineContent)
+			}
+		}
+	}
 
 	// Process each link
 
