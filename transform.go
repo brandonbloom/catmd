@@ -6,12 +6,16 @@ import (
 	"strings"
 )
 
+// FileProcessor handles content transformation of markdown files,
+// including header generation, link rewriting, and footnote inlining.
 type FileProcessor struct {
-	scopeDir     string
-	fileOrder    map[string]int
-	visitedFiles map[string]bool
+	scopeDir     string          // Directory boundary for scope checking
+	fileOrder    map[string]int  // Order index of each file in traversal
+	visitedFiles map[string]bool // Set of files included in concatenation
 }
 
+// NewFileProcessor creates a new file processor for the given scope directory
+// and list of files in traversal order.
 func NewFileProcessor(scopeDir string, orderedFiles []string) *FileProcessor {
 	fileOrder := make(map[string]int)
 	for i, file := range orderedFiles {
@@ -30,6 +34,11 @@ func NewFileProcessor(scopeDir string, orderedFiles []string) *FileProcessor {
 	}
 }
 
+// ProcessFile transforms a markdown file's content by:
+// 1. Generating appropriate headers according to the header rules
+// 2. Converting internal links to section anchors
+// 3. Inlining footnotes and removing footnote definitions
+// Returns the transformed content ready for output.
 func (fp *FileProcessor) ProcessFile(filename string, content []byte) ([]byte, error) {
 	parsed, err := ParseMarkdownFile(content, fp.scopeDir)
 	if err != nil {

@@ -13,32 +13,38 @@ import (
 	"github.com/yuin/goldmark/text"
 )
 
+// LinkInfo represents a link found in markdown content.
 type LinkInfo struct {
-	URL        string
-	Text       string
-	IsInternal bool
-	IsFootnote bool
+	URL        string // The link destination
+	Text       string // The display text of the link
+	IsInternal bool   // True if this is a relative link within scope
+	IsFootnote bool   // True if this is a footnote reference
 }
 
+// HeaderInfo represents a heading found in markdown content.
 type HeaderInfo struct {
-	Level int
-	Text  string
-	ID    string
+	Level int    // Header level (1-6)
+	Text  string // Header text content
+	ID    string // Header ID attribute if present
 }
 
+// FootnoteInfo represents a footnote definition found in markdown content.
 type FootnoteInfo struct {
-	ID      string
-	Content string
+	ID      string // Footnote identifier (e.g., "1" or "note")
+	Content string // The footnote content text
 }
 
+// ParsedFile contains all extracted information from a markdown file.
 type ParsedFile struct {
-	Headers   []HeaderInfo
-	Links     []LinkInfo
-	Footnotes []FootnoteInfo
-	AST       ast.Node
-	Source    []byte
+	Headers   []HeaderInfo   // All headers found in the file
+	Links     []LinkInfo     // All links found in the file
+	Footnotes []FootnoteInfo // All footnote definitions found
+	AST       ast.Node       // The parsed AST for content transformation
+	Source    []byte         // Original source content
 }
 
+// NewMarkdownParser creates a new Goldmark parser configured for GitHub Flavored Markdown
+// with footnote support and automatic heading ID generation.
 func NewMarkdownParser() goldmark.Markdown {
 	return goldmark.New(
 		goldmark.WithExtensions(
@@ -51,6 +57,9 @@ func NewMarkdownParser() goldmark.Markdown {
 	)
 }
 
+// ParseMarkdownFile parses markdown content and extracts all relevant information
+// including headers, links, and footnotes. Links are classified as internal/external
+// based on the provided scope directory.
 func ParseMarkdownFile(content []byte, scopeDir string) (*ParsedFile, error) {
 	md := NewMarkdownParser()
 
@@ -211,6 +220,8 @@ func isInternalLink(url, scopeDir string) bool {
 	return true
 }
 
+// GenerateSectionLink creates a section anchor link from a filename.
+// For example, "dir/file.md" becomes "#file.md".
 func GenerateSectionLink(filename string) string {
 	base := filepath.Base(filename)
 	// Keep the full filename including extension

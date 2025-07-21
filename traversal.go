@@ -8,14 +8,17 @@ import (
 	"strings"
 )
 
+// FileTraversal handles the depth-first traversal of markdown files through internal links.
 type FileTraversal struct {
-	visited   map[string]bool
-	scopeDir  string
-	rootFile  string
-	queue     []string
-	fileOrder []string
+	visited   map[string]bool // Set of files already processed to prevent cycles
+	scopeDir  string          // Directory boundary for internal link classification
+	rootFile  string          // Starting file for traversal
+	queue     []string        // Stack of files to process (LIFO for depth-first)
+	fileOrder []string        // Final order of files for concatenation
 }
 
+// NewFileTraversal creates a new file traversal starting from the given root file
+// within the specified scope directory.
 func NewFileTraversal(rootFile, scopeDir string) *FileTraversal {
 	return &FileTraversal{
 		visited:   make(map[string]bool),
@@ -26,6 +29,8 @@ func NewFileTraversal(rootFile, scopeDir string) *FileTraversal {
 	}
 }
 
+// Traverse performs depth-first traversal of markdown files, following internal links
+// and returning the files in traversal order. Files are only included once.
 func (ft *FileTraversal) Traverse() ([]string, error) {
 	for len(ft.queue) > 0 {
 		// Take from the end for depth-first traversal (stack behavior)
@@ -144,6 +149,8 @@ func (ft *FileTraversal) isMarkdownFile(filename string) bool {
 	return ext == ".md" || ext == ".markdown"
 }
 
+// DetermineScopeDir resolves the scope directory from either an explicit path
+// or defaults to the directory containing the root file.
 func DetermineScopeDir(rootFile string, explicitScope string) (string, error) {
 	if explicitScope != "" {
 		abs, err := filepath.Abs(explicitScope)
@@ -175,6 +182,7 @@ func DetermineScopeDir(rootFile string, explicitScope string) (string, error) {
 	return filepath.Dir(rootAbs), nil
 }
 
+// ValidateRootFile checks that the root file exists and is a markdown file.
 func ValidateRootFile(rootFile string) error {
 	info, err := os.Stat(rootFile)
 	if err != nil {
@@ -196,6 +204,8 @@ func ValidateRootFile(rootFile string) error {
 	return nil
 }
 
+// WalkDirectoryForMarkdown recursively finds all markdown files in a directory.
+// This function is not used in the main flow but provided for utility purposes.
 func WalkDirectoryForMarkdown(scopeDir string) ([]string, error) {
 	var markdownFiles []string
 

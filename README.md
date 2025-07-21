@@ -1,5 +1,8 @@
 # catmd 🐱‍⚕️
 
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.24-blue.svg)](https://golang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Concatenates Markdown files intelligently.**
 
 `catmd` recursively traverses markdown files through internal links, intelligently
@@ -8,14 +11,16 @@ converting internal links to section anchors.
 
 ## Installation
 
+**Requirements:** Go 1.24 or later
+
 ```bash
-go install github.com/user/catmd@latest
+go install github.com/brandonbloom/catmd@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/user/catmd
+git clone https://github.com/brandonbloom/catmd
 cd catmd
 go build
 ```
@@ -83,10 +88,12 @@ See the [API docs](#api.md) for details.
 - **Cycle Detection**: Prevents infinite loops in circular references
 - **Graceful Errors**: Continues processing when individual files are missing
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines.
+
 ## License
 
-MIT
+MIT License - see [LICENSE](LICENSE) for details.
 
-Note: The MIT license expressly denies any kind of warranty. Beyond that, this
-project was aggressively "vibe coded" as a learning experience, and so offers
-even less warranty than none at all.
+**Note:** This project was developed as a learning experience. While functional and well-tested, use in production environments should be carefully evaluated.

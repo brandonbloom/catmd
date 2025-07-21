@@ -9,3 +9,4 @@ This test verifies that:
 3. **No errors are thrown**: The tool handles missing files gracefully without crashing.
 
 The key insight is that missing files are never added to the traversal queue during the link discovery phase, so they never reach the file processing phase where errors might occur.
+

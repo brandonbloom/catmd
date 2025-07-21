@@ -1,4 +1,4 @@
-module catmd
+module github.com/brandonbloom/catmd
 
 go 1.24.2
 
