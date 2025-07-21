@@ -24,12 +24,20 @@ run_test() {
         start_file="$test_dir/input/index.md"
     elif [ -f "$test_dir/input/a.md" ]; then
         start_file="$test_dir/input/a.md"
+    elif [ -f "$test_dir/index.md" ]; then
+        start_file="$test_dir/index.md"
+    elif [ -f "$test_dir/a.md" ]; then
+        start_file="$test_dir/a.md"
+    elif [ -f "$test_dir/docs/index.md" ]; then
+        start_file="$test_dir/docs/index.md"
     fi
     
     if [ -n "$start_file" ]; then
         # Check if test has custom options
         if [ "$test_name" = "scope-option" ]; then
             ./catmd --scope "$test_dir/input/docs" "$start_file" > "$test_dir/actual.md"
+        elif [ "$test_name" = "scope-boundary" ]; then
+            ./catmd --scope "$test_dir/docs" "$start_file" > "$test_dir/actual.md"
         elif [ "$test_name" = "output-option" ]; then
             ./catmd -o "$test_dir/actual.md" "$start_file"
         else
