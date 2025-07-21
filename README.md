@@ -74,7 +74,7 @@ Welcome to [the guide](#guide.md)!
 
 See the [API docs](#api.md) for details.
 
-# api.md
+# API Reference
 
 ...content...
 ```
