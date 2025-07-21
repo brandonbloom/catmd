@@ -171,13 +171,22 @@ func (fp *FileProcessor) transformContent(content string, currentFile string, li
 
 	for _, link := range links {
 		if link.IsInternal && !link.IsFootnote {
+			// Extract fragment from original URL before resolution
+			fragment := ""
+			if strings.Contains(link.URL, "#") {
+				parts := strings.Split(link.URL, "#")
+				if len(parts) > 1 {
+					fragment = "#" + strings.Join(parts[1:], "#")
+				}
+			}
+
 			resolvedPath, err := fp.resolveLink(currentFile, link.URL)
 			if err != nil {
 				continue
 			}
 
 			if fp.visitedFiles[resolvedPath] {
-				sectionLink := GenerateSectionLink(resolvedPath)
+				sectionLink := GenerateSectionLink(resolvedPath) + fragment
 
 				// Find the link in the content
 				// This is a simple approach - just replace the URL
