@@ -28,8 +28,9 @@ func NewFileTraversal(rootFile, scopeDir string) *FileTraversal {
 
 func (ft *FileTraversal) Traverse() ([]string, error) {
 	for len(ft.queue) > 0 {
-		currentFile := ft.queue[0]
-		ft.queue = ft.queue[1:]
+		// Take from the end for depth-first traversal (stack behavior)
+		currentFile := ft.queue[len(ft.queue)-1]
+		ft.queue = ft.queue[:len(ft.queue)-1]
 
 		if ft.visited[currentFile] {
 			continue
@@ -43,7 +44,9 @@ func (ft *FileTraversal) Traverse() ([]string, error) {
 			return nil, fmt.Errorf("failed to process file %q: %w", currentFile, err)
 		}
 
-		for _, link := range links {
+		// Add links in reverse order so they are processed in forward order
+		for i := len(links) - 1; i >= 0; i-- {
+			link := links[i]
 			if !ft.visited[link] && ft.isWithinScope(link) {
 				ft.queue = append(ft.queue, link)
 			}
