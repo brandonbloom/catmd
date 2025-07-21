@@ -41,7 +41,9 @@ func (ft *FileTraversal) Traverse() ([]string, error) {
 
 		links, err := ft.extractLinksFromFile(currentFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to process file %q: %w", currentFile, err)
+			// Log warning to stderr but continue processing
+			fmt.Fprintf(os.Stderr, "Warning: failed to process file %q: %v\n", currentFile, err)
+			continue
 		}
 
 		// Add links in reverse order so they are processed in forward order

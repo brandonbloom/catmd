@@ -85,18 +85,22 @@ func run(rootFile, outputFile, explicitScope string) error {
 
 	processor := NewFileProcessor(scopeDir, orderedFiles)
 
-	for i, filename := range orderedFiles {
+	filesWritten := 0
+	for _, filename := range orderedFiles {
 		content, err := os.ReadFile(filename)
 		if err != nil {
-			return fmt.Errorf("failed to read file %q: %w", filename, err)
+			// Log warning to stderr but continue processing
+			fmt.Fprintf(os.Stderr, "Warning: failed to read file %q: %v\n", filename, err)
+			continue
 		}
 
 		processedContent, err := processor.ProcessFile(filename, content)
 		if err != nil {
-			return fmt.Errorf("failed to process file %q: %w", filename, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to process file %q: %v\n", filename, err)
+			continue
 		}
 
-		if i > 0 {
+		if filesWritten > 0 {
 			if _, err := writer.Write([]byte("\n\n")); err != nil {
 				return fmt.Errorf("failed to write separator: %w", err)
 			}
@@ -105,6 +109,7 @@ func run(rootFile, outputFile, explicitScope string) error {
 		if _, err := writer.Write(processedContent); err != nil {
 			return fmt.Errorf("failed to write processed content for file %q: %w", filename, err)
 		}
+		filesWritten++
 	}
 
 	return nil
