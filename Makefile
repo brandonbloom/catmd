@@ -6,9 +6,16 @@
 build:
 	go build -o catmd .
 
-# Run all tests
-test:
+# Run all tests (integration and unit)
+test: test-integration test-unit
+
+# Run integration tests
+test-integration:
 	./test.sh
+
+# Run unit tests
+test-unit:
+	go test -v ./...
 
 # Clean build artifacts
 clean:
@@ -45,16 +52,18 @@ update-tests:
 # Show available targets
 help:
 	@echo "Available targets:"
-	@echo "  build        - Build the catmd binary"
-	@echo "  test         - Run all tests"
-	@echo "  clean        - Remove build artifacts"
-	@echo "  install      - Install binary to GOPATH/bin"
-	@echo "  lint         - Run golangci-lint (if installed)"
-	@echo "  fmt          - Format Go code"
-	@echo "  vet          - Run go vet"
-	@echo "  dev          - Run format, vet, lint, and test"
-	@echo "  update-tests - Update test expectations (use with caution)"
-	@echo "  help         - Show this help message"
+	@echo "  build            - Build the catmd binary"
+	@echo "  test             - Run all tests (integration and unit)"
+	@echo "  test-integration - Run integration tests only"
+	@echo "  test-unit        - Run unit tests only"
+	@echo "  clean            - Remove build artifacts"
+	@echo "  install          - Install binary to GOPATH/bin"
+	@echo "  lint             - Run golangci-lint (if installed)"
+	@echo "  fmt              - Format Go code"
+	@echo "  vet              - Run go vet"
+	@echo "  dev              - Run format, vet, lint, and test"
+	@echo "  update-tests     - Update test expectations (use with caution)"
+	@echo "  help             - Show this help message"
 
 # Default target
 all: dev

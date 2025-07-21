@@ -173,6 +173,10 @@ func extractLinks(doc ast.Node, source []byte, scopeDir string, indexToID map[in
 }
 
 func extractTextFromNode(node ast.Node, source []byte) string {
+	if node == nil {
+		return ""
+	}
+
 	var buf strings.Builder
 
 	ast.Walk(node, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
