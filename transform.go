@@ -227,50 +227,50 @@ func adjustHeaderLevelsInAST(doc ast.Node) {
 
 // renderModifiedASTToMarkdownWithTransforms converts the modified AST back to markdown with link and footnote transformations
 func (fp *FileProcessor) renderModifiedASTToMarkdownWithTransforms(parsed *ParsedFile, filename string) ([]byte, error) {
-	// Create lookup map for footnote content
+	// Pass 1: Inline footnotes
+	if err := fp.inlineFootnotes(parsed, filename); err != nil {
+		return nil, err
+	}
+
+	// Pass 2: Transform links
+	if err := fp.transformLinks(parsed.AST, filename); err != nil {
+		return nil, err
+	}
+
+	// Pass 3: Render to markdown using the standard renderer
+	renderer := markdown.NewRenderer()
+	var buf bytes.Buffer
+	if err := renderer.Render(&buf, parsed.Source, parsed.AST); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+// inlineFootnotes replaces footnote references with their content and removes footnote definitions
+func (fp *FileProcessor) inlineFootnotes(parsed *ParsedFile, filename string) error {
+	// First, create a map of footnote content with transformed links
 	footnoteContentMap := make(map[string]string)
+
 	for _, footnote := range parsed.Footnotes {
 		// Parse the footnote content as markdown
 		mdParser := NewMarkdownParser()
 		footnoteAST := mdParser.Parser().Parse(text.NewReader([]byte(footnote.Content)))
 
-		// Transform links within the footnote AST
-		ast.Walk(footnoteAST, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
-			if !entering {
-				return ast.WalkContinue, nil
-			}
-			if link, ok := n.(*ast.Link); ok {
-				if fp.isInternalLink(string(link.Destination), filename) {
-					if resolvedPath, err := fp.resolveLink(filename, string(link.Destination)); err == nil {
-						if fp.visitedFiles[resolvedPath] {
-							fragment := ""
-							if strings.Contains(string(link.Destination), "#") {
-								parts := strings.Split(string(link.Destination), "#")
-								if len(parts) > 1 {
-									fragment = "#" + strings.Join(parts[1:], "#")
-								}
-							}
-							sectionLink := GenerateSectionLink(resolvedPath) + fragment
-							link.Destination = []byte(sectionLink)
-						}
-					}
-				}
-			}
-			return ast.WalkContinue, nil
-		})
+		// Transform links within the footnote
+		fp.transformLinks(footnoteAST, filename)
 
-		// Render the transformed footnote AST to a string
+		// Render the footnote content back to markdown
 		renderer := markdown.NewRenderer()
 		var buf bytes.Buffer
 		if err := renderer.Render(&buf, []byte(footnote.Content), footnoteAST); err != nil {
-			// Handle error, maybe log it
-			footnoteContentMap[footnote.ID] = footnote.Content // fallback to original content
+			footnoteContentMap[footnote.ID] = footnote.Content // fallback
 		} else {
 			footnoteContentMap[footnote.ID] = strings.TrimSpace(buf.String())
 		}
 	}
 
-	// Re-create index to ID mapping for footnotes from the AST
+	// Create index to ID mapping
 	footnoteIndexToID := make(map[int]string)
 	ast.Walk(parsed.AST, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
@@ -282,30 +282,17 @@ func (fp *FileProcessor) renderModifiedASTToMarkdownWithTransforms(parsed *Parse
 		return ast.WalkContinue, nil
 	})
 
-	// Transform the AST in place
+	// Now walk the AST and replace footnote references and remove definitions
+	var nodesToRemove []ast.Node
+
 	ast.Walk(parsed.AST, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
 		}
 
 		switch node := n.(type) {
-		case *ast.Link:
-			if fp.isInternalLink(string(node.Destination), filename) {
-				if resolvedPath, err := fp.resolveLink(filename, string(node.Destination)); err == nil {
-					if fp.visitedFiles[resolvedPath] {
-						fragment := ""
-						if strings.Contains(string(node.Destination), "#") {
-							parts := strings.Split(string(node.Destination), "#")
-							if len(parts) > 1 {
-								fragment = "#" + strings.Join(parts[1:], "#")
-							}
-						}
-						sectionLink := GenerateSectionLink(resolvedPath) + fragment
-						node.Destination = []byte(sectionLink)
-					}
-				}
-			}
 		case *extast.FootnoteLink:
+			// Replace footnote reference with inline content
 			footnoteID := footnoteIndexToID[node.Index]
 			if content, exists := footnoteContentMap[footnoteID]; exists {
 				inlineContent := fmt.Sprintf(" (%s)", content)
@@ -315,24 +302,54 @@ func (fp *FileProcessor) renderModifiedASTToMarkdownWithTransforms(parsed *Parse
 					parent.ReplaceChild(parent, node, textNode)
 				}
 			}
-			return ast.WalkSkipChildren, nil // We replaced it, no need to walk children
+			return ast.WalkSkipChildren, nil
+
 		case *extast.Footnote, *extast.FootnoteList:
-			// Remove footnote definitions from AST
-			parent := n.Parent()
-			if parent != nil {
-				parent.RemoveChild(parent, n)
-			}
+			// Mark for removal (can't remove during walk)
+			nodesToRemove = append(nodesToRemove, n)
 			return ast.WalkSkipChildren, nil
 		}
+
 		return ast.WalkContinue, nil
 	})
 
-	// Render the transformed AST to markdown
-	renderer := markdown.NewRenderer()
-	var buf bytes.Buffer
-	if err := renderer.Render(&buf, parsed.Source, parsed.AST); err != nil {
-		return nil, err
+	// Remove footnote definitions
+	for _, node := range nodesToRemove {
+		if parent := node.Parent(); parent != nil {
+			parent.RemoveChild(parent, node)
+		}
 	}
 
-	return buf.Bytes(), nil
+	return nil
+}
+
+// transformLinks converts internal links to section anchors
+func (fp *FileProcessor) transformLinks(doc ast.Node, filename string) error {
+	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		if link, ok := n.(*ast.Link); ok {
+			if fp.isInternalLink(string(link.Destination), filename) {
+				if resolvedPath, err := fp.resolveLink(filename, string(link.Destination)); err == nil {
+					if fp.visitedFiles[resolvedPath] {
+						fragment := ""
+						if strings.Contains(string(link.Destination), "#") {
+							parts := strings.Split(string(link.Destination), "#")
+							if len(parts) > 1 {
+								fragment = "#" + strings.Join(parts[1:], "#")
+							}
+						}
+						sectionLink := GenerateSectionLink(resolvedPath) + fragment
+						link.Destination = []byte(sectionLink)
+					}
+				}
+			}
+		}
+
+		return ast.WalkContinue, nil
+	})
+
+	return nil
 }
