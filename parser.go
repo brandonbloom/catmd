@@ -242,7 +242,7 @@ func extractFootnotes(doc ast.Node, source []byte) []FootnoteInfo {
 
 		if footnoteNode, ok := n.(*extast.Footnote); ok {
 			id := string(footnoteNode.Ref)
-			content := extractFootnoteContent(footnoteNode, source)
+			content := extractFootnoteMarkdown(footnoteNode, source)
 
 			footnotes = append(footnotes, FootnoteInfo{
 				ID:      id,
@@ -256,45 +256,42 @@ func extractFootnotes(doc ast.Node, source []byte) []FootnoteInfo {
 	return footnotes
 }
 
-func extractFootnoteContent(footnoteNode *extast.Footnote, source []byte) string {
-	// Extract the raw markdown content of the footnote by getting the text
-	// from the source between the footnote's start and end positions
+func extractFootnoteMarkdown(footnoteNode *extast.Footnote, source []byte) string {
+	// The footnote node contains child nodes that represent its content
+	// We need to extract the text content from these nodes
 
-	// Find the first child (paragraph) of the footnote
-	if footnoteNode.ChildCount() == 0 {
+	// If the footnote has no children, return empty
+	if footnoteNode.FirstChild() == nil {
 		return ""
 	}
 
-	firstChild := footnoteNode.FirstChild()
-	if firstChild == nil {
-		return ""
-	}
+	// Build the content by walking through child nodes
+	var content strings.Builder
 
-	// Get the segment that contains the footnote content
-	segment := firstChild.Lines()
-	if segment.Len() == 0 {
-		return ""
-	}
-
-	var buf strings.Builder
-	for i := 0; i < segment.Len(); i++ {
-		line := segment.At(i)
-		lineText := string(source[line.Start:line.Stop])
-
-		// For the first line, we need to remove the footnote definition prefix [^id]:
-		if i == 0 {
-			// Find the ]: part and take everything after it
-			colonIndex := strings.Index(lineText, "]:")
-			if colonIndex >= 0 {
-				lineText = lineText[colonIndex+2:]
+	for child := footnoteNode.FirstChild(); child != nil; child = child.NextSibling() {
+		// For paragraph nodes, extract their text content
+		if para, ok := child.(*ast.Paragraph); ok {
+			// Extract text from all children of the paragraph
+			for pChild := para.FirstChild(); pChild != nil; pChild = pChild.NextSibling() {
+				switch node := pChild.(type) {
+				case *ast.Text:
+					content.Write(node.Segment.Value(source))
+				case *ast.String:
+					content.Write(node.Value)
+				case *ast.Link:
+					// For links, we need to preserve the link text
+					linkText := extractTextFromNode(node, source)
+					content.WriteString(linkText)
+				default:
+					// For other inline elements, try to extract their text
+					text := extractTextFromNode(node, source)
+					if text != "" {
+						content.WriteString(text)
+					}
+				}
 			}
 		}
-
-		buf.WriteString(strings.TrimLeft(lineText, " \t"))
-		if i < segment.Len()-1 {
-			buf.WriteString(" ")
-		}
 	}
 
-	return strings.TrimSpace(buf.String())
+	return strings.TrimSpace(content.String())
 }

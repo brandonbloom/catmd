@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"path/filepath"
 	"strings"
 
+	markdown "github.com/teekennedy/goldmark-markdown"
 	"github.com/yuin/goldmark/ast"
+	extast "github.com/yuin/goldmark/extension/ast"
+	"github.com/yuin/goldmark/text"
 )
 
 /*
@@ -73,14 +77,17 @@ func (fp *FileProcessor) ProcessFile(filename string, content []byte) ([]byte, e
 
 	// Always use unified processing for consistency
 	needsHeaderAdjustment := header != ""
-	transformedContent := fp.renderModifiedContent(parsed.AST, parsed.Source, filename, parsed.Links, parsed.Footnotes, needsHeaderAdjustment)
+	transformedContent, err := fp.renderModifiedContent(parsed, filename, needsHeaderAdjustment)
+	if err != nil {
+		return nil, fmt.Errorf("failed to render modified content for %q: %w", filename, err)
+	}
 
 	var result strings.Builder
 	if header != "" {
 		result.WriteString(header)
 		result.WriteString("\n\n")
 	}
-	result.WriteString(transformedContent)
+	result.Write(transformedContent)
 
 	return []byte(result.String()), nil
 }
@@ -171,13 +178,13 @@ func (fp *FileProcessor) resolveLink(currentFile, linkURL string) (string, error
 // renderModifiedContent implements the Header Adjustment Rules above.
 // Applies content transformations consistently for all files, including conditional
 // header level adjustment when synthetic headers are added to files with exactly 1 level-1 header.
-func (fp *FileProcessor) renderModifiedContent(doc ast.Node, source []byte, filename string, links []LinkInfo, footnotes []FootnoteInfo, needsHeaderAdjustment bool) string {
+func (fp *FileProcessor) renderModifiedContent(parsed *ParsedFile, filename string, needsHeaderAdjustment bool) ([]byte, error) {
 	// Implement Header Adjustment Rules: Increment ALL headers by 1 level when
 	// a synthetic header is added AND the original document had exactly 1 level-1 header
 	if needsHeaderAdjustment {
 		// Count existing level 1 headers
 		level1Count := 0
-		ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		ast.Walk(parsed.AST, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 			if !entering {
 				return ast.WalkContinue, nil
 			}
@@ -190,12 +197,12 @@ func (fp *FileProcessor) renderModifiedContent(doc ast.Node, source []byte, file
 		// Adjust headers when adding synthetic header and any level-1 headers exist
 		// This prevents conflicts by ensuring only the synthetic header is level-1
 		if level1Count > 0 {
-			adjustHeaderLevelsInAST(doc)
+			adjustHeaderLevelsInAST(parsed.AST)
 		}
 	}
 
 	// Render the modified AST back to markdown with link and footnote transformations
-	return fp.renderModifiedASTToMarkdownWithTransforms(doc, source, filename, links, footnotes)
+	return fp.renderModifiedASTToMarkdownWithTransforms(parsed, filename)
 }
 
 // adjustHeaderLevelsInAST increments ALL header levels by 1 to resolve conflicts.
@@ -219,215 +226,113 @@ func adjustHeaderLevelsInAST(doc ast.Node) {
 }
 
 // renderModifiedASTToMarkdownWithTransforms converts the modified AST back to markdown with link and footnote transformations
-func (fp *FileProcessor) renderModifiedASTToMarkdownWithTransforms(doc ast.Node, source []byte, filename string, links []LinkInfo, footnotes []FootnoteInfo) string {
-	// Create lookup maps for transformations
-	footnoteMap := make(map[string]string)
-	for _, footnote := range footnotes {
-		footnoteMap[footnote.ID] = footnote.Content
-	}
+func (fp *FileProcessor) renderModifiedASTToMarkdownWithTransforms(parsed *ParsedFile, filename string) ([]byte, error) {
+	// Create lookup map for footnote content
+	footnoteContentMap := make(map[string]string)
+	for _, footnote := range parsed.Footnotes {
+		// Parse the footnote content as markdown
+		mdParser := NewMarkdownParser()
+		footnoteAST := mdParser.Parser().Parse(text.NewReader([]byte(footnote.Content)))
 
-	linkMap := make(map[string]string)
-	for _, link := range links {
-		if link.IsInternal && !link.IsFootnote {
-			if resolvedPath, err := fp.resolveLink(filename, link.URL); err == nil {
-				if fp.visitedFiles[resolvedPath] {
-					fragment := ""
-					if strings.Contains(link.URL, "#") {
-						parts := strings.Split(link.URL, "#")
-						if len(parts) > 1 {
-							fragment = "#" + strings.Join(parts[1:], "#")
-						}
-					}
-					sectionLink := GenerateSectionLink(resolvedPath) + fragment
-					linkMap[link.URL] = sectionLink
-				}
-			}
-		}
-	}
-
-	var buf strings.Builder
-	footnoteIndex := 0 // Track which footnote link we're processing
-
-	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
-		switch node := n.(type) {
-		case *ast.Document:
-			// Document container - no output needed
-
-		case *ast.Heading:
-			if entering {
-				// Write the heading marker
-				for i := 0; i < node.Level; i++ {
-					buf.WriteByte('#')
-				}
-				buf.WriteByte(' ')
-			} else {
-				buf.WriteString("\n\n")
-			}
-
-		case *ast.Paragraph:
+		// Transform links within the footnote AST
+		ast.Walk(footnoteAST, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 			if !entering {
-				buf.WriteString("\n")
+				return ast.WalkContinue, nil
 			}
-
-		case *ast.Text:
-			if entering {
-				segment := node.Segment
-				text := string(source[segment.Start:segment.Stop])
-
-				// Handle footnote references in text
-				for footnoteID, content := range footnoteMap {
-					footnoteRef := "[^" + footnoteID + "]"
-					inlineContent := " (" + content + ")"
-					text = strings.ReplaceAll(text, footnoteRef, inlineContent)
-				}
-
-				buf.WriteString(text)
-			}
-
-		case *ast.Link:
-			if entering {
-				buf.WriteByte('[')
-			} else {
-				buf.WriteString("](")
-
-				// Transform the destination if needed
-				destination := string(node.Destination)
-				if newDest, exists := linkMap[destination]; exists {
-					buf.WriteString(newDest)
-				} else {
-					buf.WriteString(destination)
-				}
-
-				if node.Title != nil {
-					buf.WriteString(` "`)
-					buf.Write(node.Title)
-					buf.WriteByte('"')
-				}
-				buf.WriteByte(')')
-			}
-
-		case *ast.CodeSpan:
-			if entering {
-				buf.WriteByte('`')
-				// CodeSpan content is in child Text nodes, let them handle the content
-			} else {
-				buf.WriteByte('`')
-			}
-
-		case *ast.Emphasis:
-			if entering {
-				if node.Level == 1 {
-					buf.WriteByte('*')
-				} else {
-					buf.WriteString("**")
-				}
-			} else {
-				if node.Level == 1 {
-					buf.WriteByte('*')
-				} else {
-					buf.WriteString("**")
-				}
-			}
-
-		// Note: ast.Strong doesn't exist, Emphasis with Level=2 is used for strong
-
-		case *ast.FencedCodeBlock:
-			if entering {
-				buf.WriteString("```")
-				if node.Language(source) != nil {
-					buf.Write(node.Language(source))
-				}
-				buf.WriteByte('\n')
-				lines := node.Lines()
-				for i := 0; i < lines.Len(); i++ {
-					line := lines.At(i)
-					buf.Write(source[line.Start:line.Stop])
-				}
-				buf.WriteString("```\n")
-			}
-
-		case *ast.List:
-			if !entering {
-				buf.WriteByte('\n')
-			}
-
-		case *ast.ListItem:
-			if entering {
-				if node.Parent().(*ast.List).IsOrdered() {
-					buf.WriteString("1. ")
-				} else {
-					buf.WriteString("- ")
-				}
-			} else {
-				buf.WriteByte('\n')
-			}
-
-		case *ast.Blockquote:
-			if entering {
-				buf.WriteString("> ")
-			}
-
-		case *ast.ThematicBreak:
-			if entering {
-				buf.WriteString("---\n")
-			}
-
-		case *ast.HTMLBlock:
-			if entering {
-				lines := node.Lines()
-				for i := 0; i < lines.Len(); i++ {
-					line := lines.At(i)
-					buf.Write(source[line.Start:line.Stop])
-				}
-			}
-
-		case *ast.RawHTML:
-			if entering {
-				// RawHTML stores content in Segments
-				for i := 0; i < node.Segments.Len(); i++ {
-					segment := node.Segments.At(i)
-					buf.Write(source[segment.Start:segment.Stop])
-				}
-			}
-
-		default:
-			// Check for footnote-related nodes by kind
-			switch n.Kind().String() {
-			case "FootnoteLink":
-				if entering {
-					// Find the corresponding footnote in our links array
-					currentIndex := 0
-					for _, link := range links {
-						if link.IsFootnote {
-							if currentIndex == footnoteIndex {
-								// Found our footnote
-								if content, exists := footnoteMap[link.URL]; exists {
-									buf.WriteString(" (")
-									buf.WriteString(content)
-									buf.WriteString(")")
+			if link, ok := n.(*ast.Link); ok {
+				if fp.isInternalLink(string(link.Destination), filename) {
+					if resolvedPath, err := fp.resolveLink(filename, string(link.Destination)); err == nil {
+						if fp.visitedFiles[resolvedPath] {
+							fragment := ""
+							if strings.Contains(string(link.Destination), "#") {
+								parts := strings.Split(string(link.Destination), "#")
+								if len(parts) > 1 {
+									fragment = "#" + strings.Join(parts[1:], "#")
 								}
-								footnoteIndex++
-								break
 							}
-							currentIndex++
+							sectionLink := GenerateSectionLink(resolvedPath) + fragment
+							link.Destination = []byte(sectionLink)
 						}
 					}
 				}
-				return ast.WalkSkipChildren, nil
-			case "Footnote", "FootnoteList":
-				// Skip footnote definitions entirely
-				return ast.WalkSkipChildren, nil
 			}
-			// For any other unhandled node types, just continue walking
-		}
+			return ast.WalkContinue, nil
+		})
 
+		// Render the transformed footnote AST to a string
+		renderer := markdown.NewRenderer()
+		var buf bytes.Buffer
+		if err := renderer.Render(&buf, []byte(footnote.Content), footnoteAST); err != nil {
+			// Handle error, maybe log it
+			footnoteContentMap[footnote.ID] = footnote.Content // fallback to original content
+		} else {
+			footnoteContentMap[footnote.ID] = strings.TrimSpace(buf.String())
+		}
+	}
+
+	// Re-create index to ID mapping for footnotes from the AST
+	footnoteIndexToID := make(map[int]string)
+	ast.Walk(parsed.AST, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		if fn, ok := n.(*extast.Footnote); ok {
+			footnoteIndexToID[fn.Index] = string(fn.Ref)
+		}
 		return ast.WalkContinue, nil
 	})
 
-	result := buf.String()
-	// Ensure output ends with a newline
-	if len(result) > 0 && result[len(result)-1] != '\n' {
-		result += "\n"
+	// Transform the AST in place
+	ast.Walk(parsed.AST, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		switch node := n.(type) {
+		case *ast.Link:
+			if fp.isInternalLink(string(node.Destination), filename) {
+				if resolvedPath, err := fp.resolveLink(filename, string(node.Destination)); err == nil {
+					if fp.visitedFiles[resolvedPath] {
+						fragment := ""
+						if strings.Contains(string(node.Destination), "#") {
+							parts := strings.Split(string(node.Destination), "#")
+							if len(parts) > 1 {
+								fragment = "#" + strings.Join(parts[1:], "#")
+							}
+						}
+						sectionLink := GenerateSectionLink(resolvedPath) + fragment
+						node.Destination = []byte(sectionLink)
+					}
+				}
+			}
+		case *extast.FootnoteLink:
+			footnoteID := footnoteIndexToID[node.Index]
+			if content, exists := footnoteContentMap[footnoteID]; exists {
+				inlineContent := fmt.Sprintf(" (%s)", content)
+				textNode := ast.NewString([]byte(inlineContent))
+				parent := node.Parent()
+				if parent != nil {
+					parent.ReplaceChild(parent, node, textNode)
+				}
+			}
+			return ast.WalkSkipChildren, nil // We replaced it, no need to walk children
+		case *extast.Footnote, *extast.FootnoteList:
+			// Remove footnote definitions from AST
+			parent := n.Parent()
+			if parent != nil {
+				parent.RemoveChild(parent, n)
+			}
+			return ast.WalkSkipChildren, nil
+		}
+		return ast.WalkContinue, nil
+	})
+
+	// Render the transformed AST to markdown
+	renderer := markdown.NewRenderer()
+	var buf bytes.Buffer
+	if err := renderer.Render(&buf, parsed.Source, parsed.AST); err != nil {
+		return nil, err
 	}
-	return result
+
+	return buf.Bytes(), nil
 }
