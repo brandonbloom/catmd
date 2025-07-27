@@ -1,10 +1,10 @@
 # index.md
 
-# First Header
+## First Header
 
 Some content here.
 
-# Second Header
+## Second Header
 
 More content.
 
