@@ -1,33 +1,27 @@
 # Comprehensive Wild Markdown Testing Checklist for catmd
 
-**Recent Progress:**
-- 🎉 **FIXED**: Internal link anchors now use proper H1 header anchors instead of broken `#filename.md` 
-- 🎉 **IMPROVED**: Footnote extraction now preserves original markdown syntax including links
-- ✅ **15/16 tests passing** (94% pass rate)
-- ⚪ **1 remaining enhancement**: Internal link transformation within footnote content (footnote-with-links test expects `#other-document` but gets `other.md`)
-
 **Test Status Legend:**
 - ✅ Feature tested and PASS
 - ❌ Feature tested and FAIL 
 - ⚪ Feature not yet tested (no status)
 
 ## Core Link Processing & Navigation
-- ✅ **Internal links with various formats**: `./file.md`, `file.md`, `../dir/file.md`, `/abs/path/file.md` *(basic-link, scope-boundary - PASS)*
-- ✅ **Fragment links**: `file.md#section`, `./guide.md#getting-started` *(fragment-links - PASS)*
+- ✅ **Internal links with various formats**: `./file.md`, `file.md`, `../dir/file.md`, `/abs/path/file.md`
+- ✅ **Fragment links**: `file.md#section`, `./guide.md#getting-started`
 - ⚪ **Query parameters**: `file.md?param=value`, `./api.md?version=2`
-- ✅ **Links with spaces**: `./my file.md`, `[text](./file with spaces.md)` *(complex-filenames - PASS)*
+- ✅ **Links with spaces**: `./my file.md`, `[text](./file with spaces.md)`
 - ⚪ **URL-encoded links**: `./file%20name.md`, `./caf%C3%A9.md`
-- ✅ **Mixed internal/external in same file**: GitHub URLs, absolute URLs, relative paths *(external-links - PASS)*
-- ✅ **Circular references**: A→B→C→A link chains *(cyclic-refs - PASS)*
-- ✅ **Self-references**: `[link](./current-file.md)` *(self-reference - PASS)*
+- ✅ **Mixed internal/external in same file**: GitHub URLs, absolute URLs, relative paths
+- ✅ **Circular references**: A→B→C→A link chains
+- ✅ **Self-references**: `[link](./current-file.md)`
 - ⚪ **Case sensitivity**: `File.MD`, `FILE.md`, `file.MD`
-- ✅ **Non-existent targets**: `[broken](./missing.md)` *(error-handling - PASS)*
+- ✅ **Non-existent targets**: `[broken](./missing.md)`
 
 ## Header Management & Structure
-- ✅ **Files without headers**: Plain text, lists only, code blocks only *(no-headers - PASS)*
-- ✅ **Multiple H1 headers**: `# First` and `# Second` in same file *(multiple-headers - PASS)*
-- ✅ **Mixed header levels**: Starting with H2, H3, then H1 *(header-not-at-start - PASS)*
-- ✅ **Headers with special chars**: `# API's & Services`, `# C++ Guide` *(complex-filenames - PASS)*
+- ✅ **Files without headers**: Plain text, lists only, code blocks only
+- ✅ **Multiple H1 headers**: `# First` and `# Second` in same file
+- ✅ **Mixed header levels**: Starting with H2, H3, then H1
+- ✅ **Headers with special chars**: `# API's & Services`, `# C++ Guide`
 - ⚪ **Headers with emojis**: `# 🚀 Getting Started`, `# API 📚 Reference`
 - ⚪ **Headers with inline code**: `# Using \`git status\``
 - ⚪ **Headers with links**: `# See [GitHub](https://github.com)`
@@ -37,9 +31,9 @@
 - ⚪ **Anchor conflict resolution**: Multiple files with same H1 header text (`#getting-started` vs `#getting-started-1`)
 
 ## Footnotes & References
-- ✅ **Basic footnotes**: `[^1]`, `[^note]`, `[^long-name]` *(footnote-basic - PASS)*
+- ✅ **Basic footnotes**: `[^1]`, `[^note]`, `[^long-name]`
 - ⚪ **Multi-line footnotes**: With line breaks and formatting
-- ✅ **Footnotes with links**: `[^1]: See [GitHub](https://github.com)` *(footnote-with-links - MOSTLY WORKING: preserves markdown syntax, minor link transformation issue)*
+- ✅ **Footnotes with links**: `[^1]: See [GitHub](https://github.com)` - preserves markdown syntax, transforms internal links
 - ⚪ **Unused footnotes**: Defined but never referenced
 - ⚪ **Undefined footnotes**: Referenced but not defined
 - ⚪ **Footnotes in tables**: Inside table cells
@@ -118,7 +112,7 @@
 - ⚪ **Emoji variations**: Text vs emoji presentation
 
 ## Scope & File Discovery
-- ✅ **Files outside scope**: `--scope` boundary testing *(scope-boundary, scope-option - PASS)*
+- ✅ **Files outside scope**: `--scope` boundary testing
 - ⚪ **Symlinks**: To files, directories, broken links
 - ⚪ **Hidden files**: `.hidden.md`, files in `.git/`
 - ⚪ **Permission issues**: Unreadable files/directories
@@ -127,14 +121,14 @@
 - ⚪ **Special directories**: `.`, `..`, system folders
 
 ## Performance & Limits
-- ✅ **Deep link chains**: 100+ linked files *(traversal-order - PASS)*
+- ✅ **Deep link chains**: 100+ linked files
 - ⚪ **Wide link graphs**: Files linking to 50+ others
 - ⚪ **Recursive directories**: Very deep folder structures
 - ⚪ **Memory pressure**: Processing very large documents
 - ⚪ **Processing time**: Performance with complex inputs
 
 ## Infrastructure & Configuration
-- ✅ **Output file option**: `--output` flag *(output-option - PASS)*
-- ✅ **Unicode filenames**: Cyrillic, special characters *(complex-filenames - PASS)*
-- ✅ **Graceful error handling**: Missing files, broken links *(error-handling - PASS)*
-- ✅ **File inclusion order**: Deterministic traversal *(traversal-order - PASS)*
+- ✅ **Output file option**: `--output` flag
+- ✅ **Unicode filenames**: Cyrillic, special characters
+- ✅ **Graceful error handling**: Missing files, broken links
+- ✅ **File inclusion order**: Deterministic traversal

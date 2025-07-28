@@ -13,9 +13,12 @@ import (
 )
 
 /*
-Header Processing Rules
+Package main - Transform phase implementation
 
-Goal: Every input file produces exactly one top-level header at the start of that file in the concatenated output.
+HEADER PROCESSING ARCHITECTURE
+
+Goal: Every input file produces exactly one top-level header at the start of that
+file in the concatenated output, creating a consistent navigation structure.
 
 Header Generation Rules - Add synthetic header `# filename.md` when:
 1. 0 level-1 headers - No top-level header exists
@@ -31,7 +34,30 @@ Logic Summary:
 - 1 level-1 header not at start: Add synthetic `#`, increment all headers (resolve conflict)
 - Multiple level-1 headers: Add synthetic `#`, increment all headers (resolve conflicts)
 
-This ensures every file section in the concatenated output starts with exactly one `#` header, with proper hierarchy maintained throughout.
+This ensures every file section in the concatenated output starts with exactly one `#` header,
+with proper hierarchy maintained throughout.
+
+TRANSFORMATION PIPELINE
+
+The transform phase implements a three-pass pipeline on the parsed AST:
+
+Pass 1: Header Generation/Adjustment
+- Applies header rules above to ensure consistent file-level structure
+- Modifies AST header levels in-place when synthetic headers are added
+
+Pass 2: Footnote Inlining
+- Replaces footnote references [^1] with inline content " (footnote text)"
+- Uses pre-parsed AST nodes from parser phase for robust content insertion
+- Removes footnote definitions from document after inlining
+
+Pass 3: Link Transformation
+- Converts internal markdown links to section anchors for navigation
+- Uses goldmark's auto-generated header IDs for accurate anchor targets
+- Preserves fragments (#section) in transformed links
+
+Pass 4: Rendering
+- Uses goldmark-markdown renderer to convert transformed AST back to markdown
+- Maintains proper markdown syntax throughout the pipeline
 */
 
 // FileProcessor handles content transformation of markdown files,
@@ -238,7 +264,16 @@ func adjustHeaderLevelsInAST(doc ast.Node) {
 	})
 }
 
-// renderModifiedASTToMarkdownWithTransforms converts the modified AST back to markdown with link and footnote transformations
+// renderModifiedASTToMarkdownWithTransforms implements the transformation pipeline
+// by applying footnote inlining, link transformation, and final rendering in sequence.
+//
+// Pipeline phases:
+// 1. Footnote inlining: Replace references with content, remove definitions
+// 2. Link transformation: Convert internal links to section anchors
+// 3. Markdown rendering: Convert transformed AST back to markdown text
+//
+// Each phase operates on the AST in-place, maintaining document structure
+// while applying the necessary transformations for concatenated output.
 func (fp *FileProcessor) renderModifiedASTToMarkdownWithTransforms(parsed *ParsedFile, filename string) ([]byte, error) {
 	// Pass 1: Inline footnotes
 	if err := fp.inlineFootnotes(parsed, filename); err != nil {
@@ -260,23 +295,22 @@ func (fp *FileProcessor) renderModifiedASTToMarkdownWithTransforms(parsed *Parse
 	return buf.Bytes(), nil
 }
 
-// inlineFootnotes replaces footnote references with their content and removes footnote definitions
+// inlineFootnotes replaces footnote references with their content and removes footnote definitions.
+// This implements Pass 2 of the transformation pipeline.
+//
+// Key architectural decision: We insert pre-parsed AST nodes (not raw text) so that
+// the subsequent transformLinks() pass can automatically handle internal links within
+// footnote content, maintaining consistency with the rest of the document.
 func (fp *FileProcessor) inlineFootnotes(parsed *ParsedFile, filename string) error {
-	// First, create a map of footnote content with transformed links
-	footnoteContentMap := make(map[string]string)
+	// Create a map of footnote nodes indexed by footnote ID
+	footnoteNodesMap := make(map[string][]ast.Node)
 
 	for _, footnote := range parsed.Footnotes {
-		// Footnote content now preserves original markdown syntax including links.
-		//
-		// Previously this code tried to parse footnote content and re-render it with
-		// goldmark-markdown, but that renderer panics on individual nodes because it
-		// expects full document context with renderContext state. The improved
-		// extractFootnoteMarkdown() now preserves original syntax using line segments,
-		// so no re-parsing/rendering is needed.
-		//
-		// TODO: Re-enable link transformation for internal links in footnotes
-		// (currently [other.md](other.md) should become [other.md](#other-document))
-		footnoteContentMap[footnote.ID] = footnote.Content
+		// Store the fresh AST nodes created by re-parsing footnote content.
+		// These nodes will be inserted directly into the document AST, allowing
+		// the subsequent transformLinks() pass to transform any internal links
+		// within footnotes to section anchors automatically.
+		footnoteNodesMap[footnote.ID] = footnote.Nodes
 	}
 
 	// Create index to ID mapping
@@ -301,14 +335,24 @@ func (fp *FileProcessor) inlineFootnotes(parsed *ParsedFile, filename string) er
 
 		switch node := n.(type) {
 		case *extast.FootnoteLink:
-			// Replace footnote reference with inline content
+			// Replace footnote reference with inline AST nodes
 			footnoteID := footnoteIndexToID[node.Index]
-			if content, exists := footnoteContentMap[footnoteID]; exists {
-				inlineContent := fmt.Sprintf(" (%s)", content)
-				textNode := ast.NewString([]byte(inlineContent))
+			if nodes, exists := footnoteNodesMap[footnoteID]; exists {
 				parent := node.Parent()
 				if parent != nil {
-					parent.ReplaceChild(parent, node, textNode)
+					// Insert opening parenthesis and space
+					parent.InsertBefore(parent, node, ast.NewString([]byte(" (")))
+
+					// Insert all footnote nodes
+					for _, footnoteNode := range nodes {
+						parent.InsertBefore(parent, node, footnoteNode)
+					}
+
+					// Insert closing parenthesis
+					parent.InsertBefore(parent, node, ast.NewString([]byte(")")))
+
+					// Remove the original footnote reference
+					parent.RemoveChild(parent, node)
 				}
 			}
 			return ast.WalkSkipChildren, nil
@@ -332,7 +376,12 @@ func (fp *FileProcessor) inlineFootnotes(parsed *ParsedFile, filename string) er
 	return nil
 }
 
-// transformLinks converts internal links to section anchors
+// transformLinks converts internal links to section anchors for navigation within
+// the concatenated document. This implements Pass 3 of the transformation pipeline.
+//
+// Internal links like "./other.md#section" become "#other.md#section" to point to
+// the correct file section in the concatenated output. Uses goldmark's auto-generated
+// header IDs when available for accurate anchor targeting.
 func (fp *FileProcessor) transformLinks(doc ast.Node, filename string) error {
 	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
