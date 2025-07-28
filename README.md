@@ -1,13 +1,14 @@
-# catmd 🐱‍⚕️
-
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.24-blue.svg)](https://golang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+# catmd 🐱⚕️
 
 **Concatenates Markdown files intelligently.**
 
-`catmd` recursively traverses markdown files through internal links, intelligently
-combining them into a single document while preserving external references and
-converting internal links to section anchors.
+Perfect for LLM context preparation and generating [llm.txt](https://llmstxt.org) files. `catmd` recursively traverses markdown files through internal links, combining them into a single document while preserving external references and converting internal links to section anchors. Unlike pandoc's complex filters and configuration, `catmd` works with sane defaults out of the box.
+
+## Use Cases
+
+- **llm.txt Generation**: Automated build step for creating [llm.txt](https://llmstxt.org) files
+- **Documentation Search**: Eliminate file traversal to search across linked markdown easily
+- **Agent Workflows**: Create single files for feeding to Claude Code and similar tools
 
 ## Installation
 
@@ -34,7 +35,7 @@ catmd [options] <root>
 ### Options
 
 - `-o, --output <file>` - Output file (default: stdout)
-- `--scope <directory>` - Directory containing eligible files (default: root file's directory)
+- `--scope <directory>` - Only include files within this directory (default: root file's directory)
 
 ### Example
 
@@ -49,16 +50,20 @@ Welcome to [the guide](./guide.md)!
 
 **guide.md**
 ```markdown
-## Getting Started
+# User Guide
 
-See the [API docs](./api.md) for details.
+See the [setup instructions](./setup.md) for details.
 ```
 
-**api.md**
+**setup.md**
 ```markdown
-# API Reference
+## Installation
 
-...content...
+Run the installer...
+
+## Configuration
+
+Edit the config file...
 ```
 
 Running `catmd index.md` produces:
@@ -66,26 +71,30 @@ Running `catmd index.md` produces:
 ```markdown
 # My Project
 
-Welcome to [the guide](#guide.md)!
+Welcome to [the guide](#user-guide)!
 
-# guide.md
+# User Guide
 
-## Getting Started
+See the [setup instructions](#setup.md) for details.
 
-See the [API docs](#api.md) for details.
+# setup.md
 
-# API Reference
+## Installation
 
-...content...
+Run the installer...
+
+## Configuration
+
+Edit the config file...
 ```
 
 ## Key Features
 
+- **Intelligent File Discovery**: Follows internal links in depth-first order (not alphabetical like `cat *.md`)
 - **Smart Link Conversion**: Internal links become section anchors (`./file.md` → `#file.md`)
-- **Header Management**: Ensures exactly one top-level header per file
-- **Footnote Inlining**: Expands `[^1]` references directly into text
+- **Built-in Cycle Detection**: Prevents infinite loops in circular references
+- **Footnote Inlining**: Expands `[^1]` references directly into text for LLM readability
 - **Scope Boundaries**: External links and files outside scope are preserved
-- **Cycle Detection**: Prevents infinite loops in circular references
 - **Graceful Errors**: Continues processing when individual files are missing
 
 ## Contributing
@@ -96,4 +105,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution gu
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-**Note:** This project was heavily Vibe-Coded as a learning experience. So there is even less warranty than none.
+**Note:** This project was heavily Vibe-Coded as a learning experience and is primarily for personal use. While tested, it prioritizes simplicity over comprehensive edge case handling.
