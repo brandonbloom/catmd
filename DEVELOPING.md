@@ -113,10 +113,12 @@ The tool continues processing despite individual file errors:
 
 ### Test Coverage
 
-The test suite covers all specification requirements:
+The test suite covers all specification requirements. See `test/TODO.md` for comprehensive test tracking across 135+ test areas including core functionality, edge cases, GFM features, and performance scenarios.
 
-- **Basic functionality**: Link conversion, file concatenation
+Current coverage focuses on:
+- **Core functionality**: Link conversion, file concatenation
 - **Header rules**: All combinations of header scenarios  
+- **Footnotes**: Basic and advanced footnote handling
 - **Edge cases**: Complex filenames, fragments, cycles
 - **Error conditions**: Missing files, permissions
 - **Options**: Output files, scope directories
@@ -132,6 +134,14 @@ The `test.sh` script:
 1. Runs `catmd` on test inputs
 2. Compares against expected output
 3. Reports any differences
+
+### Adding New Tests
+
+Reference `test/TODO.md` to identify untested areas, then:
+
+1. Create `test/feature-name/` directory with test files
+2. Run `./test.sh` to generate expected output
+3. Update test status in `test/TODO.md`
 
 ## Code Style
 
