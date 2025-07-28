@@ -10,7 +10,6 @@ import (
 	markdown "github.com/teekennedy/goldmark-markdown"
 	"github.com/yuin/goldmark/ast"
 	extast "github.com/yuin/goldmark/extension/ast"
-	"github.com/yuin/goldmark/text"
 )
 
 /*
@@ -267,21 +266,17 @@ func (fp *FileProcessor) inlineFootnotes(parsed *ParsedFile, filename string) er
 	footnoteContentMap := make(map[string]string)
 
 	for _, footnote := range parsed.Footnotes {
-		// Parse the footnote content as markdown
-		mdParser := NewMarkdownParser()
-		footnoteAST := mdParser.Parser().Parse(text.NewReader([]byte(footnote.Content)))
-
-		// Transform links within the footnote
-		fp.transformLinks(footnoteAST, filename)
-
-		// Render the footnote content back to markdown
-		renderer := markdown.NewRenderer()
-		var buf bytes.Buffer
-		if err := renderer.Render(&buf, []byte(footnote.Content), footnoteAST); err != nil {
-			footnoteContentMap[footnote.ID] = footnote.Content // fallback
-		} else {
-			footnoteContentMap[footnote.ID] = strings.TrimSpace(buf.String())
-		}
+		// Footnote content now preserves original markdown syntax including links.
+		//
+		// Previously this code tried to parse footnote content and re-render it with
+		// goldmark-markdown, but that renderer panics on individual nodes because it
+		// expects full document context with renderContext state. The improved
+		// extractFootnoteMarkdown() now preserves original syntax using line segments,
+		// so no re-parsing/rendering is needed.
+		//
+		// TODO: Re-enable link transformation for internal links in footnotes
+		// (currently [other.md](other.md) should become [other.md](#other-document))
+		footnoteContentMap[footnote.ID] = footnote.Content
 	}
 
 	// Create index to ID mapping

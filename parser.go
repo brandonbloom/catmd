@@ -257,37 +257,31 @@ func extractFootnotes(doc ast.Node, source []byte) []FootnoteInfo {
 }
 
 func extractFootnoteMarkdown(footnoteNode *extast.Footnote, source []byte) string {
-	// The footnote node contains child nodes that represent its content
-	// We need to extract the text content from these nodes
+	// Extract original source text from the footnote's paragraph children.
+	//
+	// Key insight: Footnotes (*extast.Footnote) don't store line segments themselves
+	// (footnoteNode.Lines().Len() == 0), but their child paragraph nodes DO have
+	// line segments that point to the original source. This preserves the exact
+	// markdown syntax including links like [text](url).
+	//
+	// We avoid using goldmark-markdown renderer here because it expects full document
+	// context and panics when rendering individual nodes or subtrees.
 
-	// If the footnote has no children, return empty
 	if footnoteNode.FirstChild() == nil {
 		return ""
 	}
 
-	// Build the content by walking through child nodes
 	var content strings.Builder
 
+	// Walk through footnote children to find paragraphs with line segments
 	for child := footnoteNode.FirstChild(); child != nil; child = child.NextSibling() {
-		// For paragraph nodes, extract their text content
-		if para, ok := child.(*ast.Paragraph); ok {
-			// Extract text from all children of the paragraph
-			for pChild := para.FirstChild(); pChild != nil; pChild = pChild.NextSibling() {
-				switch node := pChild.(type) {
-				case *ast.Text:
-					content.Write(node.Segment.Value(source))
-				case *ast.String:
-					content.Write(node.Value)
-				case *ast.Link:
-					// For links, we need to preserve the link text
-					linkText := extractTextFromNode(node, source)
-					content.WriteString(linkText)
-				default:
-					// For other inline elements, try to extract their text
-					text := extractTextFromNode(node, source)
-					if text != "" {
-						content.WriteString(text)
-					}
+		if paragraph, ok := child.(*ast.Paragraph); ok {
+			lines := paragraph.Lines()
+			for i := 0; i < lines.Len(); i++ {
+				segment := lines.At(i)
+				content.Write(segment.Value(source))
+				if i < lines.Len()-1 {
+					content.WriteByte('\n')
 				}
 			}
 		}
