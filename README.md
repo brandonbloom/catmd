@@ -96,4 +96,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution gu
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-**Note:** This project was developed as a learning experience. While functional and well-tested, use in production environments should be carefully evaluated.
+**Note:** This project was heavily Vibe-Coded as a learning experience. So there is even less warranty than none.
