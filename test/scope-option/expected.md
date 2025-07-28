@@ -1,6 +1,6 @@
 # Documentation
 
-Links to [internal doc](#api.md) and [source code](./src/main.md).
+Links to [internal doc](#api-documentation) and [source code](./src/main.md).
 
 
 # API Documentation

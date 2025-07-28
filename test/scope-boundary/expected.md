@@ -1,6 +1,6 @@
 # Documentation Index
 
-Link to [internal doc](#internal.md) within scope.
+Link to [internal doc](#internal-documentation) within scope.
 
 Link to [outside doc](../other/outside.md) outside scope.
 

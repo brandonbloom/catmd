@@ -1,15 +1,15 @@
 # Root Document
 
-First, link to [B](#b.md).
+First, link to [B](#document-b).
 
-Then, link to [C](#c.md).
+Then, link to [C](#document-c).
 
 
 # Document B
 
-B links to [D](#d.md).
+B links to [D](#document-d).
 
-B also links to [E](#e.md).
+B also links to [E](#document-e).
 
 
 # Document D
@@ -24,7 +24,7 @@ E is another leaf node.
 
 # Document C
 
-C links to [F](#f.md).
+C links to [F](#document-f).
 
 
 # Document F

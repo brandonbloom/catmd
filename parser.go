@@ -232,6 +232,42 @@ func GenerateSectionLink(filename string) string {
 	return "#" + base
 }
 
+// GenerateHeaderAnchor creates an anchor ID from header text following GitHub's rules.
+// Converts "Document A" to "document-a", "Self-Reference Test" to "self-reference-test".
+func GenerateHeaderAnchor(headerText string) string {
+	// Follow GitHub's anchor generation rules:
+	// 1. Convert to lowercase
+	// 2. Replace spaces with hyphens
+	// 3. Remove punctuation and special characters
+	// 4. Trim whitespace and hyphens
+
+	result := strings.ToLower(headerText)
+	result = strings.ReplaceAll(result, " ", "-")
+
+	// Remove common punctuation and special characters
+	replacements := []string{
+		"!", "", "?", "", ".", "", ",", "", ";", "", ":", "",
+		"(", "", ")", "", "[", "", "]", "", "{", "", "}", "",
+		"'", "", "\"", "", "`", "", "*", "", "_", "", "~", "",
+		"@", "", "#", "", "$", "", "%", "", "^", "", "&", "",
+		"+", "", "=", "", "|", "", "\\", "", "/", "", "<", "", ">", "",
+	}
+
+	for i := 0; i < len(replacements); i += 2 {
+		result = strings.ReplaceAll(result, replacements[i], replacements[i+1])
+	}
+
+	// Clean up multiple consecutive hyphens
+	for strings.Contains(result, "--") {
+		result = strings.ReplaceAll(result, "--", "-")
+	}
+
+	// Trim leading/trailing hyphens
+	result = strings.Trim(result, "-")
+
+	return result
+}
+
 func extractFootnotes(doc ast.Node, source []byte) []FootnoteInfo {
 	var footnotes []FootnoteInfo
 

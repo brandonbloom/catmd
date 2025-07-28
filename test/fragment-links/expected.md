@@ -1,10 +1,10 @@
 # Fragment Links Test
 
-Link to [specific section](#other.md#section-name).
+Link to [specific section](#other-document#section-name).
 
-Link to [another section](#other.md#another-section).
+Link to [another section](#other-document#another-section).
 
-Regular link to [whole file](#other.md).
+Regular link to [whole file](#other-document).
 
 
 # Other Document

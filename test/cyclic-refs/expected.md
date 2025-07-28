@@ -1,8 +1,8 @@
 # Document A
 
-Links to [Document B](#b.md)
+Links to [Document B](#document-b)
 
 
 # Document B
 
-Links back to [Document A](#a.md)
+Links back to [Document A](#document-a)

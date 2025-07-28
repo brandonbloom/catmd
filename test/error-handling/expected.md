@@ -2,7 +2,7 @@
 
 Link to [missing file](missing.md).
 
-Link to [existing file](#existing.md).
+Link to [existing file](#existing-file).
 
 
 # Existing File

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -37,13 +38,14 @@ This ensures every file section in the concatenated output starts with exactly o
 // FileProcessor handles content transformation of markdown files,
 // including header generation, link rewriting, and footnote inlining.
 type FileProcessor struct {
-	scopeDir     string          // Directory boundary for scope checking
-	fileOrder    map[string]int  // Order index of each file in traversal
-	visitedFiles map[string]bool // Set of files included in concatenation
+	scopeDir     string                  // Directory boundary for scope checking
+	fileOrder    map[string]int          // Order index of each file in traversal
+	visitedFiles map[string]bool         // Set of files included in concatenation
+	fileHeaders  map[string][]HeaderInfo // Cached header info for each file
 }
 
 // NewFileProcessor creates a new file processor for the given scope directory
-// and list of files in traversal order.
+// and list of files in traversal order. Pre-loads header information for all files.
 func NewFileProcessor(scopeDir string, orderedFiles []string) *FileProcessor {
 	fileOrder := make(map[string]int)
 	for i, file := range orderedFiles {
@@ -55,10 +57,22 @@ func NewFileProcessor(scopeDir string, orderedFiles []string) *FileProcessor {
 		visited[file] = true
 	}
 
+	// Pre-load header information for all files
+	fileHeaders := make(map[string][]HeaderInfo)
+	for _, file := range orderedFiles {
+		if content, err := os.ReadFile(file); err == nil {
+			if parsed, err := ParseMarkdownFile(content, scopeDir); err == nil {
+				fileHeaders[file] = parsed.Headers
+			}
+		}
+		// If we can't read/parse a file, it will have empty headers slice
+	}
+
 	return &FileProcessor{
 		scopeDir:     scopeDir,
 		fileOrder:    fileOrder,
 		visitedFiles: visited,
+		fileHeaders:  fileHeaders,
 	}
 }
 
@@ -341,7 +355,7 @@ func (fp *FileProcessor) transformLinks(doc ast.Node, filename string) error {
 								fragment = "#" + strings.Join(parts[1:], "#")
 							}
 						}
-						sectionLink := GenerateSectionLink(resolvedPath) + fragment
+						sectionLink := fp.generateTargetAnchor(resolvedPath) + fragment
 						link.Destination = []byte(sectionLink)
 					}
 				}
@@ -352,4 +366,26 @@ func (fp *FileProcessor) transformLinks(doc ast.Node, filename string) error {
 	})
 
 	return nil
+}
+
+// generateTargetAnchor creates the appropriate anchor for a target file.
+// If the file has an H1 header, use that header's anchor. Otherwise, use filename.
+func (fp *FileProcessor) generateTargetAnchor(targetPath string) string {
+	// Use cached header information
+	headers, exists := fp.fileHeaders[targetPath]
+	if !exists {
+		// Fallback to filename if no cached headers
+		return GenerateSectionLink(targetPath)
+	}
+
+	// Look for the first H1 header
+	for _, header := range headers {
+		if header.Level == 1 {
+			// File has an H1 header, use its anchor
+			return "#" + GenerateHeaderAnchor(header.Text)
+		}
+	}
+
+	// No H1 header found, use filename (catmd will add synthetic header)
+	return GenerateSectionLink(targetPath)
 }

@@ -8,7 +8,7 @@ This file has some text before the header.
 
 This file has exactly one top-level header, but it's not at the start.
 
-Link to [other](#other.md).
+Link to [other](#and-then-a-top-level-header).
 
 
 # other.md

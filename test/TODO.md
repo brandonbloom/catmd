@@ -1,5 +1,10 @@
 # Comprehensive Wild Markdown Testing Checklist for catmd
 
+**Recent Progress:**
+- 🎉 **FIXED**: Internal link anchors now use proper H1 header anchors instead of broken `#filename.md` 
+- ✅ **15/16 tests passing** (94% pass rate)
+- 🐛 **1 remaining bug**: Footnote link stripping in `footnote-with-links` test
+
 **Test Status Legend:**
 - ✅ Feature tested and PASS
 - ❌ Feature tested and FAIL 
@@ -13,7 +18,7 @@
 - ⚪ **URL-encoded links**: `./file%20name.md`, `./caf%C3%A9.md`
 - ✅ **Mixed internal/external in same file**: GitHub URLs, absolute URLs, relative paths *(external-links - PASS)*
 - ✅ **Circular references**: A→B→C→A link chains *(cyclic-refs - PASS)*
-- ❌ **Self-references**: `[link](./current-file.md)` *(self-reference - FAIL)*
+- ✅ **Self-references**: `[link](./current-file.md)` *(self-reference - PASS)*
 - ⚪ **Case sensitivity**: `File.MD`, `FILE.md`, `file.MD`
 - ✅ **Non-existent targets**: `[broken](./missing.md)` *(error-handling - PASS)*
 
@@ -28,11 +33,12 @@
 - ⚪ **Headers with formatting**: `# **Bold** and *italic*`
 - ⚪ **Very long headers**: 200+ character titles
 - ⚪ **Duplicate header names**: Multiple `## Installation` sections
+- ⚪ **Anchor conflict resolution**: Multiple files with same H1 header text (`#getting-started` vs `#getting-started-1`)
 
 ## Footnotes & References
 - ✅ **Basic footnotes**: `[^1]`, `[^note]`, `[^long-name]` *(footnote-basic - PASS)*
 - ⚪ **Multi-line footnotes**: With line breaks and formatting
-- ❌ **Footnotes with links**: `[^1]: See [GitHub](https://github.com)` *(footnote-with-links - FAIL)*
+- ❌ **Footnotes with links**: `[^1]: See [GitHub](https://github.com)` *(footnote-with-links - FAIL: link stripping bug)*
 - ⚪ **Unused footnotes**: Defined but never referenced
 - ⚪ **Undefined footnotes**: Referenced but not defined
 - ⚪ **Footnotes in tables**: Inside table cells
