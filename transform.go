@@ -381,8 +381,8 @@ func (fp *FileProcessor) generateTargetAnchor(targetPath string) string {
 	// Look for the first H1 header
 	for _, header := range headers {
 		if header.Level == 1 {
-			// File has an H1 header, use its anchor
-			return "#" + GenerateHeaderAnchor(header.Text)
+			// File has an H1 header, use its anchor from goldmark's auto-generated ID
+			return "#" + header.ID
 		}
 	}
 
