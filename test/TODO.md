@@ -1,22 +1,22 @@
 # Comprehensive Wild Markdown Testing Checklist for catmd
 
 ## Core Link Processing & Navigation
-- [ ] **Internal links with various formats**: `./file.md`, `file.md`, `../dir/file.md`, `/abs/path/file.md`
-- [ ] **Fragment links**: `file.md#section`, `./guide.md#getting-started`
+- [x] **Internal links with various formats**: `./file.md`, `file.md`, `../dir/file.md`, `/abs/path/file.md` *(basic-link, scope-boundary)*
+- [x] **Fragment links**: `file.md#section`, `./guide.md#getting-started` *(fragment-links)*
 - [ ] **Query parameters**: `file.md?param=value`, `./api.md?version=2`
-- [ ] **Links with spaces**: `./my file.md`, `[text](./file with spaces.md)`
+- [x] **Links with spaces**: `./my file.md`, `[text](./file with spaces.md)` *(complex-filenames)*
 - [ ] **URL-encoded links**: `./file%20name.md`, `./caf%C3%A9.md`
-- [ ] **Mixed internal/external in same file**: GitHub URLs, absolute URLs, relative paths
-- [ ] **Circular references**: A→B→C→A link chains
+- [x] **Mixed internal/external in same file**: GitHub URLs, absolute URLs, relative paths *(external-links)*
+- [x] **Circular references**: A→B→C→A link chains *(cyclic-refs)*
 - [ ] **Self-references**: `[link](./current-file.md)`
 - [ ] **Case sensitivity**: `File.MD`, `FILE.md`, `file.MD`
-- [ ] **Non-existent targets**: `[broken](./missing.md)`
+- [x] **Non-existent targets**: `[broken](./missing.md)` *(error-handling)*
 
 ## Header Management & Structure
-- [ ] **Files without headers**: Plain text, lists only, code blocks only
-- [ ] **Multiple H1 headers**: `# First` and `# Second` in same file
-- [ ] **Mixed header levels**: Starting with H2, H3, then H1
-- [ ] **Headers with special chars**: `# API's & Services`, `# C++ Guide`
+- [x] **Files without headers**: Plain text, lists only, code blocks only *(no-headers)*
+- [x] **Multiple H1 headers**: `# First` and `# Second` in same file *(multiple-headers)*
+- [x] **Mixed header levels**: Starting with H2, H3, then H1 *(header-not-at-start)*
+- [x] **Headers with special chars**: `# API's & Services`, `# C++ Guide` *(complex-filenames)*
 - [ ] **Headers with emojis**: `# 🚀 Getting Started`, `# API 📚 Reference`
 - [ ] **Headers with inline code**: `# Using \`git status\``
 - [ ] **Headers with links**: `# See [GitHub](https://github.com)`
@@ -25,9 +25,9 @@
 - [ ] **Duplicate header names**: Multiple `## Installation` sections
 
 ## Footnotes & References
-- [ ] **Basic footnotes**: `[^1]`, `[^note]`, `[^long-name]`
+- [x] **Basic footnotes**: `[^1]`, `[^note]`, `[^long-name]` *(footnote-basic)*
 - [ ] **Multi-line footnotes**: With line breaks and formatting
-- [ ] **Footnotes with links**: `[^1]: See [GitHub](https://github.com)`
+- [x] **Footnotes with links**: `[^1]: See [GitHub](https://github.com)` *(footnote-with-links)*
 - [ ] **Unused footnotes**: Defined but never referenced
 - [ ] **Undefined footnotes**: Referenced but not defined
 - [ ] **Footnotes in tables**: Inside table cells
@@ -106,7 +106,7 @@
 - [ ] **Emoji variations**: Text vs emoji presentation
 
 ## Scope & File Discovery
-- [ ] **Files outside scope**: `--scope` boundary testing
+- [x] **Files outside scope**: `--scope` boundary testing *(scope-boundary, scope-option)*
 - [ ] **Symlinks**: To files, directories, broken links
 - [ ] **Hidden files**: `.hidden.md`, files in `.git/`
 - [ ] **Permission issues**: Unreadable files/directories
@@ -115,8 +115,14 @@
 - [ ] **Special directories**: `.`, `..`, system folders
 
 ## Performance & Limits
-- [ ] **Deep link chains**: 100+ linked files
+- [x] **Deep link chains**: 100+ linked files *(traversal-order)*
 - [ ] **Wide link graphs**: Files linking to 50+ others
 - [ ] **Recursive directories**: Very deep folder structures
 - [ ] **Memory pressure**: Processing very large documents
 - [ ] **Processing time**: Performance with complex inputs
+
+## Infrastructure & Configuration
+- [x] **Output file option**: `--output` flag *(output-option)*
+- [x] **Unicode filenames**: Cyrillic, special characters *(complex-filenames)*
+- [x] **Graceful error handling**: Missing files, broken links *(error-handling)*
+- [x] **File inclusion order**: Deterministic traversal *(traversal-order)*
