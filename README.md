@@ -2,13 +2,22 @@
 
 **Concatenates Markdown files intelligently.**
 
-Perfect for LLM context preparation and generating [llm.txt](https://llmstxt.org) files. `catmd` recursively traverses markdown files through internal links, combining them into a single document while preserving external references and converting internal links to section anchors. Unlike pandoc's complex filters and configuration, `catmd` works with sane defaults out of the box.
+Perfect for LLM context preparation and generating
+[llm.txt](https://llmstxt.org) files. `catmd` recursively traverses markdown
+files through internal links, combining them into a single document while
+preserving external references and converting internal links to section
+anchors. Unlike pandoc's complex filters and configuration, `catmd` works with
+sane defaults out of the box.
 
 ## Use Cases
 
 - **llm.txt Generation**: Automated build step for creating [llm.txt](https://llmstxt.org) files
 - **Documentation Search**: Eliminate file traversal to search across linked markdown easily
 - **Agent Workflows**: Create single files for feeding to Claude Code and similar tools
+
+If you have the _opposite_ problem, where one large markdown file is too big to
+be loaded into context at once (possibly as a result of using catmd), checkout
+[mdidx](https://github.com/brandonbloom/mdidx) instead.
 
 ## Installation
 
@@ -105,4 +114,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution gu
 
 MIT License - see [LICENSE](LICENSE) for details.
 
-**Note:** This project was heavily Vibe-Coded as a learning experience and is primarily for personal use. While tested, it prioritizes simplicity over comprehensive edge case handling.
+**Note:** This project was heavily Vibe-Coded as a learning experience and is
+primarily for personal use. While tested, it prioritizes simplicity over
+comprehensive edge case handling.
